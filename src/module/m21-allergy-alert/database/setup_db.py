@@ -1,8 +1,10 @@
 """
 Database setup and seed data for M21 Allergy Alert System
+MongoDB Atlas Only - No Local Database Support
 """
 import sys
 import os
+import streamlit as st
 from datetime import datetime, date
 from bson import ObjectId
 
@@ -13,21 +15,35 @@ from shared.database import DatabaseManager
 from shared.models import *
 
 
-def setup_database():
-    """Setup MongoDB database with collections and seed data"""
+def setup_atlas_database():
+    """Setup MongoDB Atlas database with collections and seed data"""
+    
+    # Check if we have connection string
+    if hasattr(st, 'secrets') and 'MONGODB_URL' in st.secrets:
+        connection_string = st.secrets["MONGODB_URL"]
+    else:
+        connection_string = os.getenv("MONGODB_URL")
+    
+    if not connection_string:
+        raise ValueError(
+            "MongoDB Atlas connection string required! "
+            "Please add MONGODB_URL to Streamlit secrets or environment variables."
+        )
     
     # Initialize database manager
-    db_manager = DatabaseManager()
+    db_manager = DatabaseManager(connection_string)
     
     if not db_manager.connect():
-        print("❌ Failed to connect to MongoDB")
+        print("❌ Failed to connect to MongoDB Atlas")
         return False
     
-    print("🗑️ Dropping existing database...")
-    db_manager.drop_database()
+    print("🗑️ Dropping existing collections...")
+    collections = ["patients", "allergies", "medications", "patient_allergies", 
+                  "cross_reactivity_rules", "drug_class_allergies", "alternatives", 
+                  "prescriptions", "alert_log"]
     
-    # Reconnect after dropping
-    db_manager.connect()
+    for collection in collections:
+        db_manager.get_collection(collection).drop()
     
     print("📊 Creating collections and indexes...")
     db_manager.create_indexes()
@@ -35,7 +51,7 @@ def setup_database():
     print("🌱 Seeding database with test data...")
     seed_data(db_manager)
     
-    print("✅ Database setup completed successfully!")
+    print("✅ MongoDB Atlas database setup completed successfully!")
     return True
 
 
@@ -276,4 +292,4 @@ def seed_data(db_manager: DatabaseManager):
 
 
 if __name__ == "__main__":
-    setup_database()
+    setup_atlas_database()

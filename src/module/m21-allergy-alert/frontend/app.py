@@ -384,7 +384,8 @@ def display_header():
     <div class="main-header">
         <h1>🏥 Module 21: Allergy-Aware Medication Alert System</h1>
         <p>Database Management Systems Project - IIT(ISM) Dhanbad</p>
-        <p><strong>Technology Stack:</strong> Python • Streamlit • MongoDB • FastAPI</p>
+        <p><strong>Technology Stack:</strong> Python • Streamlit • MongoDB Atlas</p>
+        <p><strong>Deployment:</strong> Streamlit Cloud Ready</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -828,8 +829,9 @@ def main():
     st.markdown("---")
     st.markdown("""
     <div style="text-align: center; color: #666; font-size: 0.9rem;">
-        <p><strong>Features:</strong> 9 Collections • MongoDB Aggregation • 3-Level Cascade Checking</p>
-        <p><strong>Technology:</strong> Python • Streamlit • FastAPI • MongoDB • Plotly</p>
+        <p><strong>Features:</strong> 9 Collections • MongoDB Atlas • 3-Level Cascade Checking</p>
+        <p><strong>Technology:</strong> Python • Streamlit • MongoDB Atlas • Plotly</p>
+        <p><strong>Deployment:</strong> Streamlit Cloud + MongoDB Atlas</p>
     </div>
     """, unsafe_allow_html=True)
 

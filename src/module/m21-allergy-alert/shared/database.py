@@ -1,6 +1,6 @@
 """
-MongoDB database connection and utilities
-Compatible with Streamlit Cloud and MongoDB Atlas
+MongoDB Atlas database connection and utilities
+Optimized for Streamlit Cloud deployment with MongoDB Atlas
 """
 import os
 import streamlit as st
@@ -20,40 +20,55 @@ class DatabaseManager:
     """MongoDB database manager for M21 Allergy Alert System"""
     
     def __init__(self, connection_string: str = None, database_name: str = "m21_allergy_alert"):
-        # Priority: 1. Parameter, 2. Streamlit secrets, 3. Environment variable, 4. Local default
+        # Priority: 1. Parameter, 2. Streamlit secrets, 3. Environment variable
         if connection_string:
             self.connection_string = connection_string
         elif hasattr(st, 'secrets') and 'MONGODB_URL' in st.secrets:
             self.connection_string = st.secrets["MONGODB_URL"]
         else:
-            self.connection_string = os.getenv(
-                "MONGODB_URL", "mongodb://localhost:27017/"
-            )
+            self.connection_string = os.getenv("MONGODB_URL")
+            if not self.connection_string:
+                raise ValueError(
+                    "MongoDB Atlas connection string required! "
+                    "Please set MONGODB_URL in Streamlit secrets or environment variables. "
+                    "Get your connection string from MongoDB Atlas: https://cloud.mongodb.com/"
+                )
         
         self.database_name = database_name
         self.client: Optional[MongoClient] = None
         self.db: Optional[Database] = None
         
     def connect(self) -> bool:
-        """Establish connection to MongoDB"""
+        """Establish connection to MongoDB Atlas"""
         try:
-            self.client = MongoClient(self.connection_string)
+            # Validate connection string format
+            if not self.connection_string.startswith("mongodb+srv://"):
+                logger.warning("Connection string should use mongodb+srv:// for Atlas")
+            
+            self.client = MongoClient(
+                self.connection_string,
+                serverSelectionTimeoutMS=5000,  # 5 second timeout
+                connectTimeoutMS=10000,         # 10 second connection timeout
+                socketTimeoutMS=20000,          # 20 second socket timeout
+                retryWrites=True
+            )
             self.db = self.client[self.database_name]
             
-            # Test connection
+            # Test connection with ping
             self.client.admin.command('ping')
-            logger.info(f"✅ Connected to MongoDB: {self.database_name}")
+            logger.info(f"✅ Connected to MongoDB Atlas: {self.database_name}")
             return True
             
         except Exception as e:
-            logger.error(f"❌ MongoDB connection failed: {e}")
+            logger.error(f"❌ MongoDB Atlas connection failed: {e}")
+            logger.error("Please check your connection string and network access in MongoDB Atlas")
             return False
     
     def disconnect(self):
-        """Close MongoDB connection"""
+        """Close MongoDB Atlas connection"""
         if self.client:
             self.client.close()
-            logger.info("🔌 MongoDB connection closed")
+            logger.info("🔌 MongoDB Atlas connection closed")
     
     def get_collection(self, collection_name: str) -> Collection:
         """Get MongoDB collection"""
