@@ -1,6 +1,8 @@
 # Deployment Guide: Streamlit Cloud + MongoDB Atlas
 
-This guide will help you deploy the M21 Allergy Alert System to Streamlit Cloud using MongoDB Atlas as your database.
+**Cloud-Only Deployment** - No local development support
+
+This guide will help you deploy the M21 Allergy Alert System exclusively to Streamlit Cloud using MongoDB Atlas.
 
 ## 🚀 Quick Deployment Steps
 
@@ -58,16 +60,12 @@ This guide will help you deploy the M21 Allergy Alert System to Streamlit Cloud 
    MONGODB_URL = "mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/m21_allergy_alert?retryWrites=true&w=majority"
    ```
 
-### 3. Initialize Database
+### 3. Database Auto-Initialization
 
-1. **Access Database Setup**
-   - Once your app is deployed, navigate to: `your-app-url/setup_atlas.py`
-   - Or add `?page=setup` to your main app URL
-
-2. **Run Database Setup**
-   - Click "🚀 Setup Database" button
-   - This will create all collections and seed test data
-   - Verify the statistics show correct counts
+The database will automatically initialize when you first access the app:
+- Collections are created automatically
+- Test data is seeded on first run
+- No manual setup required!
 
 ### 4. Test Your Deployment
 
@@ -86,7 +84,7 @@ This guide will help you deploy the M21 Allergy Alert System to Streamlit Cloud 
 your-repo/
 ├── src/module/m21-allergy-alert/
 │   ├── streamlit_app.py          # Main entry point for Streamlit Cloud
-│   ├── requirements.txt          # Streamlit Cloud dependencies
+│   ├── requirements.txt          # Dependencies
 │   ├── packages.txt             # System packages (if needed)
 │   ├── .streamlit/
 │   │   └── secrets.toml.example # Template for secrets
@@ -95,26 +93,22 @@ your-repo/
 │   ├── shared/
 │   │   ├── models.py           # Data models
 │   │   └── database.py         # Database connection
-│   ├── database/
-│   │   └── setup_db.py         # Database seeding
-│   └── setup_atlas.py          # Atlas database setup tool
+│   └── database/
+│       └── setup_db.py         # Database seeding (auto-run)
 ```
 
 ## 🔧 Configuration Details
 
 ### Streamlit Secrets Format
 ```toml
-# .streamlit/secrets.toml (for local development)
+# For Streamlit Cloud only - add this in Settings → Secrets
 MONGODB_URL = "mongodb+srv://username:password@cluster.mongodb.net/m21_allergy_alert?retryWrites=true&w=majority"
-
-# For Streamlit Cloud, add this in the web interface under Settings → Secrets
 ```
 
 ### Environment Variables
-The app automatically detects the deployment environment:
-- **Streamlit Cloud**: Uses `st.secrets["MONGODB_URL"]`
-- **Local Development**: Uses environment variable or local MongoDB
-- **Fallback**: Defaults to `mongodb://localhost:27017/`
+The app is designed exclusively for Streamlit Cloud:
+- **Streamlit Cloud**: Uses `st.secrets["MONGODB_URL"]` (required)
+- **No Local Support**: This system only works on Streamlit Cloud
 
 ## 🛠️ Troubleshooting
 
@@ -149,8 +143,9 @@ The app automatically detects the deployment environment:
 **Error**: No data showing in the app
 
 **Solutions**:
-- Run the database setup tool: `/setup_atlas.py`
+- Database initializes automatically on first run
 - Check MongoDB Atlas data browser to verify collections exist
+- Restart the Streamlit app to trigger re-initialization
 - Ensure the database name matches in connection string
 
 ### Performance Optimization

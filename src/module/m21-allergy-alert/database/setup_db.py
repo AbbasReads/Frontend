@@ -1,9 +1,8 @@
 """
 Database setup and seed data for M21 Allergy Alert System
-MongoDB Atlas Only - No Local Database Support
+Streamlit Cloud + MongoDB Atlas Exclusive
 """
 import sys
-import os
 import streamlit as st
 from datetime import datetime, date
 from bson import ObjectId
@@ -18,17 +17,26 @@ from shared.models import *
 def setup_atlas_database():
     """Setup MongoDB Atlas database with collections and seed data"""
     
-    # Check if we have connection string
+    # Cloud-only: Get connection string from Streamlit secrets
+    connection_string = None
+    
     if hasattr(st, 'secrets') and 'MONGODB_URL' in st.secrets:
         connection_string = st.secrets["MONGODB_URL"]
-    else:
-        connection_string = os.getenv("MONGODB_URL")
     
     if not connection_string:
         raise ValueError(
             "MongoDB Atlas connection string required! "
-            "Please add MONGODB_URL to Streamlit secrets or environment variables."
+            "Please add MONGODB_URL to Streamlit Cloud secrets. "
+            "This system only supports Streamlit Cloud + MongoDB Atlas deployment."
         )
+    
+    # Validate connection string format
+    if not connection_string.startswith("mongodb+srv://"):
+        raise ValueError(
+            "Connection string must be a MongoDB Atlas connection string starting with mongodb+srv://"
+        )
+    
+    print(f"🔗 Connecting to MongoDB Atlas...")
     
     # Initialize database manager
     db_manager = DatabaseManager(connection_string)
@@ -43,7 +51,10 @@ def setup_atlas_database():
                   "prescriptions", "alert_log"]
     
     for collection in collections:
-        db_manager.get_collection(collection).drop()
+        try:
+            db_manager.get_collection(collection).drop()
+        except Exception as e:
+            print(f"Warning: Could not drop collection {collection}: {e}")
     
     print("📊 Creating collections and indexes...")
     db_manager.create_indexes()

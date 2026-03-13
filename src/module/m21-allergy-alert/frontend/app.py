@@ -1,11 +1,8 @@
 """
 Streamlit Frontend for M21 Allergy Alert System
-Optimized for Streamlit Cloud deployment with MongoDB Atlas
+Streamlit Cloud + MongoDB Atlas Exclusive
 """
 import streamlit as st
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 from datetime import datetime, date
 import sys
 import os
@@ -84,10 +81,9 @@ st.markdown("""
 
 
 def make_api_request(endpoint, method="GET", data=None):
-    """Make API request with error handling - Cloud compatible"""
+    """Make API request with error handling - Streamlit Cloud optimized"""
     try:
-        # For Streamlit Cloud, we'll use direct database calls instead of API
-        # This is more efficient and doesn't require a separate backend service
+        # Direct database calls for cloud deployment efficiency
         return handle_direct_request(endpoint, method, data)
     except Exception as e:
         st.error(f"Request Error: {str(e)}")
@@ -95,7 +91,7 @@ def make_api_request(endpoint, method="GET", data=None):
 
 
 def handle_direct_request(endpoint, method="GET", data=None):
-    """Handle requests directly through database for cloud deployment"""
+    """Handle requests directly through database for Streamlit Cloud deployment"""
     from shared.database import db_manager, allergy_service
     
     # Initialize database connection if not already done
@@ -113,6 +109,9 @@ def handle_direct_request(endpoint, method="GET", data=None):
     elif endpoint == "/api/v1/medications":
         return get_medications_direct()
     
+    elif endpoint == "/api/v1/drug-classes":
+        return get_drug_classes_direct()
+    
     elif endpoint.startswith("/api/v1/patient/") and endpoint.endswith("/allergies"):
         patient_id = endpoint.split("/")[3]
         return get_patient_allergies_direct(patient_id)
@@ -122,6 +121,10 @@ def handle_direct_request(endpoint, method="GET", data=None):
     
     elif endpoint.startswith("/api/v1/alerts/recent"):
         return get_recent_alerts_direct()
+    
+    elif endpoint.startswith("/api/v1/medication/"):
+        med_id = endpoint.split("/")[3]
+        return get_medication_details_direct(med_id)
     
     elif endpoint == "/api/v1/validate" and method == "POST":
         return validate_prescription_direct(data)
@@ -152,6 +155,30 @@ def get_medications_direct():
         med["med_id"] = med["_id"]
     
     return {"success": True, "medications": medications}
+
+
+def get_drug_classes_direct():
+    """Get drug classes directly from database"""
+    from shared.database import db_manager
+    
+    # Get unique drug classes with medication counts
+    pipeline = [
+        {"$group": {
+            "_id": "$drug_class",
+            "medication_count": {"$sum": 1},
+            "medications": {"$push": "$med_name"}
+        }},
+        {"$project": {
+            "drug_class": "$_id",
+            "medication_count": "$medication_count",
+            "medications": "$medications"
+        }},
+        {"$sort": {"drug_class": 1}}
+    ]
+    
+    drug_classes = list(db_manager.get_collection("medications").aggregate(pipeline))
+    
+    return {"success": True, "drug_classes": drug_classes}
 
 
 def get_patient_allergies_direct(patient_id):
@@ -332,6 +359,62 @@ def get_recent_alerts_direct():
     }
 
 
+def get_medication_details_direct(med_id):
+    """Get medication details with alternatives and cross-reactivity"""
+    from shared.database import db_manager
+    
+    # Get medication details
+    medication = db_manager.get_collection("medications").find_one({"_id": med_id})
+    if not medication:
+        return {"success": False, "error": "Medication not found"}
+    
+    # Get alternatives
+    alternatives_pipeline = [
+        {"$match": {"original_med_id": med_id}},
+        {"$lookup": {
+            "from": "medications",
+            "localField": "alternative_med_id",
+            "foreignField": "_id",
+            "as": "alt_med"
+        }},
+        {"$unwind": "$alt_med"},
+        {"$project": {
+            "med_name": "$alt_med.med_name",
+            "drug_class": "$alt_med.drug_class",
+            "reason": "$reason"
+        }}
+    ]
+    
+    alternatives = list(db_manager.get_collection("alternatives").aggregate(alternatives_pipeline))
+    
+    # Get cross-reactivity warnings
+    cross_reactivity_pipeline = [
+        {"$match": {"reactive_med_id": med_id}},
+        {"$lookup": {
+            "from": "allergies",
+            "localField": "allergen_id",
+            "foreignField": "_id",
+            "as": "allergy"
+        }},
+        {"$unwind": "$allergy"},
+        {"$project": {
+            "allergy_name": "$allergy.allergy_name",
+            "allergy_type": "$allergy.allergy_type",
+            "risk_level": "$risk_level",
+            "risk_score": "$risk_score"
+        }}
+    ]
+    
+    cross_reactivity = list(db_manager.get_collection("cross_reactivity_rules").aggregate(cross_reactivity_pipeline))
+    
+    return {
+        "success": True,
+        "medication": medication,
+        "alternatives": alternatives,
+        "cross_reactivity": cross_reactivity
+    }
+
+
 def validate_prescription_direct(data):
     """Validate prescription directly through database"""
     from shared.database import db_manager, allergy_service
@@ -499,8 +582,15 @@ def prescription_validator():
             # Display alternatives
             if result.get('alternatives'):
                 st.subheader("🔄 Safe Alternatives")
-                alt_df = pd.DataFrame(result['alternatives'])
-                st.dataframe(alt_df, use_container_width=True)
+                
+                # Create table manually without pandas
+                if result['alternatives']:
+                    st.write("| Medication | Drug Class | Reason |")
+                    st.write("|------------|------------|--------|")
+                    for alt in result['alternatives']:
+                        st.write(f"| **{alt['med_name']}** | {alt['drug_class']} | {alt['reason']} |")
+                else:
+                    st.info("No alternatives available")
     
     # Information about the checking system
     st.subheader("🔍 How the 3-Level Cascade Check Works")
@@ -553,9 +643,11 @@ def allergy_profile():
             with col1:
                 st.subheader("🚨 Known Allergies")
                 if allergies:
-                    allergy_df = pd.DataFrame(allergies)
-                    st.dataframe(allergy_df[['allergy_name', 'allergy_type', 'date_recorded', 'notes']], 
-                               use_container_width=True)
+                    # Display allergies without pandas
+                    for allergy in allergies:
+                        with st.expander(f"🚨 {allergy['allergy_name']} ({allergy['allergy_type']})"):
+                            st.write(f"**Date Recorded:** {allergy['date_recorded']}")
+                            st.write(f"**Notes:** {allergy.get('notes', 'No notes')}")
                 else:
                     st.success("✅ No known allergies recorded for this patient")
             
@@ -564,9 +656,12 @@ def allergy_profile():
                 high_risk_items = [item for item in risk_profile if item.get('reactive_drug') and item.get('risk_score', 0) > 0.5]
                 
                 if high_risk_items:
-                    risk_df = pd.DataFrame(high_risk_items)
-                    st.dataframe(risk_df[['allergy_name', 'reactive_drug', 'risk_level', 'risk_score']], 
-                               use_container_width=True)
+                    # Display risk items without pandas
+                    for risk in high_risk_items:
+                        risk_color = "🔴" if risk.get('risk_level') == 'Critical' else "🟡" if risk.get('risk_level') == 'High' else "🟢"
+                        with st.expander(f"{risk_color} {risk['allergy_name']} → {risk['reactive_drug']}"):
+                            st.write(f"**Risk Level:** {risk.get('risk_level', 'Unknown')}")
+                            st.write(f"**Risk Score:** {risk.get('risk_score', 0):.2f}")
                 else:
                     st.success("✅ No high-risk cross-reactivity medications found")
         else:
@@ -585,39 +680,42 @@ def alert_log():
         alerts = alerts_data["recent_alerts"]
         
         if alerts:
-            # Convert to DataFrame
-            alerts_df = pd.DataFrame(alerts)
+            # Process alerts without pandas
+            alert_types = list(set(alert['alert_type'] for alert in alerts))
+            patients = list(set(alert['patient_name'] for alert in alerts))
             
             # Add filters
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                alert_types = ["All"] + list(alerts_df['alert_type'].unique())
-                selected_alert_type = st.selectbox("Filter by Alert Type", alert_types)
+                selected_alert_type = st.selectbox("Filter by Alert Type", ["All"] + alert_types)
             
             with col2:
-                patients = ["All"] + list(alerts_df['patient_name'].unique())
-                selected_patient = st.selectbox("Filter by Patient", patients)
+                selected_patient = st.selectbox("Filter by Patient", ["All"] + patients)
             
             with col3:
-                st.metric("Total Alerts", len(alerts_df))
+                st.metric("Total Alerts", len(alerts))
             
             # Apply filters
-            filtered_df = alerts_df.copy()
+            filtered_alerts = alerts
             if selected_alert_type != "All":
-                filtered_df = filtered_df[filtered_df['alert_type'] == selected_alert_type]
+                filtered_alerts = [a for a in filtered_alerts if a['alert_type'] == selected_alert_type]
             if selected_patient != "All":
-                filtered_df = filtered_df[filtered_df['patient_name'] == selected_patient]
+                filtered_alerts = [a for a in filtered_alerts if a['patient_name'] == selected_patient]
             
             # Display filtered results
-            st.subheader(f"🚨 Alert History ({len(filtered_df)} alerts)")
+            st.subheader(f"🚨 Alert History ({len(filtered_alerts)} alerts)")
             
-            # Format the dataframe for display
-            display_df = filtered_df[['log_id', 'patient_name', 'med_name', 'alert_type', 
-                                    'alert_message', 'prescription_status', 'logged_at']].copy()
-            display_df['logged_at'] = pd.to_datetime(display_df['logged_at']).dt.strftime('%Y-%m-%d %H:%M:%S')
-            
-            st.dataframe(display_df, use_container_width=True)
+            # Display alerts without pandas
+            for alert in filtered_alerts:
+                alert_color = "🔴" if alert['alert_type'] in ['EXACT_MATCH', 'CLASS_MATCH', 'CROSS_REACTIVITY'] else "🟢"
+                logged_time = datetime.fromisoformat(alert['logged_at'].replace('Z', '+00:00')) if isinstance(alert['logged_at'], str) else alert['logged_at']
+                
+                with st.expander(f"{alert_color} {alert['patient_name']} - {alert['med_name']} ({alert['alert_type']})"):
+                    st.write(f"**Alert Type:** {alert['alert_type']}")
+                    st.write(f"**Message:** {alert['alert_message']}")
+                    st.write(f"**Prescription Status:** {alert.get('prescription_status', 'N/A')}")
+                    st.write(f"**Logged:** {logged_time.strftime('%Y-%m-%d %H:%M:%S') if hasattr(logged_time, 'strftime') else str(logged_time)}")
             
         else:
             st.info("No alerts found in the system")
@@ -658,17 +756,17 @@ def statistics_panel():
         with col1:
             st.subheader("🚨 Alert Type Distribution")
             if alert_stats:
-                alert_df = pd.DataFrame(alert_stats)
-                fig = px.bar(alert_df, x='alert_type', y='total', 
-                           title="Alert Types", color='alert_type')
-                st.plotly_chart(fig, use_container_width=True)
+                # Create simple bar chart data
+                chart_data = {item['alert_type']: item['total'] for item in alert_stats}
+                st.bar_chart(chart_data)
         
         with col2:
             st.subheader("📈 Alert Breakdown")
             if alert_stats:
-                fig = px.pie(alert_df, values='total', names='alert_type', 
-                           title="Alert Distribution")
-                st.plotly_chart(fig, use_container_width=True)
+                # Display as metrics instead of pie chart
+                for stat in alert_stats:
+                    color = "🔴" if stat['alert_type'] in ['EXACT_MATCH', 'CLASS_MATCH', 'CROSS_REACTIVITY'] else "🟢"
+                    st.metric(f"{color} {stat['alert_type']}", stat['total'])
         
         # Prescription status breakdown
         if additional_stats.get("prescription_stats"):
@@ -774,14 +872,15 @@ def medication_browser():
                 # Alternatives
                 if alternatives:
                     st.subheader("🔄 Safe Alternatives")
-                    alt_df = pd.DataFrame(alternatives)
-                    st.dataframe(alt_df, use_container_width=True)
+                    for alt in alternatives:
+                        st.write(f"**{alt['med_name']}** ({alt['drug_class']}) - {alt['reason']}")
                 
                 # Cross-reactivity warnings
                 if cross_reactivity:
                     st.subheader("⚠️ Cross-Reactivity Warnings")
-                    cross_df = pd.DataFrame(cross_reactivity)
-                    st.dataframe(cross_df, use_container_width=True)
+                    for cross in cross_reactivity:
+                        risk_color = "🔴" if cross['risk_level'] == 'Critical' else "🟡" if cross['risk_level'] == 'High' else "🟢"
+                        st.write(f"{risk_color} **{cross['allergy_name']}** - {cross['risk_level']} (Score: {cross['risk_score']})")
                 
                 if not alternatives and not cross_reactivity:
                     st.success("✅ No specific alternatives or cross-reactivity warnings found for this medication.")
@@ -791,9 +890,11 @@ def medication_browser():
     # Drug class overview
     st.subheader("📊 Drug Class Overview")
     if drug_classes:
-        class_df = pd.DataFrame(drug_classes)
-        st.dataframe(class_df[['drug_class', 'medication_count', 'medications']], 
-                   use_container_width=True)
+        for drug_class in drug_classes:
+            with st.expander(f"💊 {drug_class['drug_class']} ({drug_class['medication_count']} medications)"):
+                st.write(f"**Examples:** {', '.join(drug_class.get('medications', [])[:3])}")
+                if len(drug_class.get('medications', [])) > 3:
+                    st.write("...and more")
 
 
 def main():

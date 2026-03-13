@@ -29,10 +29,15 @@ This system is designed exclusively for **Streamlit Cloud + MongoDB Atlas** depl
    - Replace `<password>` with your actual password
    - Replace `<dbname>` with `m21_allergy_alert`
 
-   **Example:**
+   **Your Connection String Format:**
    ```
-   mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/m21_allergy_alert?retryWrites=true&w=majority
+   mongodb+srv://abbu:<db_password>@cluster0.qstwb7d.mongodb.net/m21_allergy_alert?retryWrites=true&w=majority&appName=Cluster0
    ```
+   
+   **What to change:**
+   - Replace `<db_password>` with your actual password
+   - Add `/m21_allergy_alert` after `.mongodb.net`
+   - Add `?retryWrites=true&w=majority` parameters
 
 ### Step 2: Deploy to Streamlit Cloud (2 minutes)
 
@@ -57,8 +62,9 @@ This system is designed exclusively for **Streamlit Cloud + MongoDB Atlas** depl
    - Go to "Secrets" tab
    - Add:
    ```toml
-   MONGODB_URL = "mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/m21_allergy_alert?retryWrites=true&w=majority"
+   MONGODB_URL = "mongodb+srv://abbu:YOUR_PASSWORD@cluster0.qstwb7d.mongodb.net/m21_allergy_alert?retryWrites=true&w=majority&appName=Cluster0"
    ```
+   **Replace `YOUR_PASSWORD` with your actual database password!**
    - Save and the app will restart
 
 ### Step 3: Initialize Database (30 seconds)

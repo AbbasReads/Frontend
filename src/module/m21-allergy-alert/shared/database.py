@@ -1,8 +1,8 @@
 """
 MongoDB Atlas database connection and utilities
-Optimized for Streamlit Cloud deployment with MongoDB Atlas
+Streamlit Cloud + MongoDB Atlas Exclusive
+No local development support
 """
-import os
 import streamlit as st
 from typing import Optional, List, Dict, Any
 from pymongo import MongoClient, IndexModel
@@ -20,30 +20,28 @@ class DatabaseManager:
     """MongoDB database manager for M21 Allergy Alert System"""
     
     def __init__(self, connection_string: str = None, database_name: str = "m21_allergy_alert"):
-        # Priority: 1. Parameter, 2. Streamlit secrets, 3. Environment variable
+        # Cloud-only: Use Streamlit secrets exclusively
         if connection_string:
             self.connection_string = connection_string
         elif hasattr(st, 'secrets') and 'MONGODB_URL' in st.secrets:
             self.connection_string = st.secrets["MONGODB_URL"]
         else:
-            self.connection_string = os.getenv("MONGODB_URL")
-            if not self.connection_string:
-                raise ValueError(
-                    "MongoDB Atlas connection string required! "
-                    "Please set MONGODB_URL in Streamlit secrets or environment variables. "
-                    "Get your connection string from MongoDB Atlas: https://cloud.mongodb.com/"
-                )
+            raise ValueError(
+                "MongoDB Atlas connection string required! "
+                "Please add MONGODB_URL to Streamlit Cloud secrets. "
+                "This system only supports Streamlit Cloud + MongoDB Atlas deployment."
+            )
         
         self.database_name = database_name
         self.client: Optional[MongoClient] = None
         self.db: Optional[Database] = None
         
     def connect(self) -> bool:
-        """Establish connection to MongoDB Atlas"""
+        """Establish connection to MongoDB Atlas and auto-initialize if needed"""
         try:
-            # Validate connection string format
+            # Validate connection string format for Atlas
             if not self.connection_string.startswith("mongodb+srv://"):
-                logger.warning("Connection string should use mongodb+srv:// for Atlas")
+                raise ValueError("Connection string must be a MongoDB Atlas connection string (mongodb+srv://)")
             
             self.client = MongoClient(
                 self.connection_string,
@@ -57,12 +55,40 @@ class DatabaseManager:
             # Test connection with ping
             self.client.admin.command('ping')
             logger.info(f"✅ Connected to MongoDB Atlas: {self.database_name}")
+            
+            # Auto-initialize database if empty
+            self._auto_initialize()
+            
             return True
             
         except Exception as e:
             logger.error(f"❌ MongoDB Atlas connection failed: {e}")
             logger.error("Please check your connection string and network access in MongoDB Atlas")
             return False
+    
+    def _auto_initialize(self):
+        """Auto-initialize database with test data if empty"""
+        try:
+            # Check if database has any patients (indicator of initialization)
+            patients_count = self.get_collection("patients").count_documents({})
+            
+            if patients_count == 0:
+                logger.info("🌱 Database is empty, initializing with test data...")
+                
+                # Create indexes
+                self.create_indexes()
+                
+                # Import and run seeding
+                from database.setup_db import seed_data
+                seed_data(self)
+                
+                logger.info("✅ Database auto-initialization completed!")
+            else:
+                logger.info(f"📊 Database already initialized with {patients_count} patients")
+                
+        except Exception as e:
+            logger.error(f"❌ Database auto-initialization failed: {e}")
+            # Don't fail the connection, just log the error
     
     def disconnect(self):
         """Close MongoDB Atlas connection"""
@@ -72,7 +98,7 @@ class DatabaseManager:
     
     def get_collection(self, collection_name: str) -> Collection:
         """Get MongoDB collection"""
-        if not self.db:
+        if self.db is None:
             raise Exception("Database not connected")
         return self.db[collection_name]
     

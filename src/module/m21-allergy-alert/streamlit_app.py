@@ -1,10 +1,10 @@
 """
 Main Streamlit app for M21 Allergy Alert System
-Optimized for Streamlit Cloud deployment with MongoDB Atlas
+Streamlit Cloud + MongoDB Atlas Exclusive
 """
 import streamlit as st
-import os
 import sys
+import os
 
 # Add current directory to path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
