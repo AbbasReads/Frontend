@@ -179,8 +179,25 @@ class SystemStats(BaseModel):
 
 
 # Utility Functions
-def get_age(dob: date) -> int:
-    """Calculate age from date of birth"""
+def get_age(dob) -> int:
+    """Calculate age from date of birth (handles both date objects and date strings)"""
+    from datetime import datetime, date
+    
+    # Handle string dates (YYYY-MM-DD format)
+    if isinstance(dob, str):
+        try:
+            dob = datetime.strptime(dob, "%Y-%m-%d").date()
+        except ValueError:
+            # Try alternative formats if needed
+            try:
+                dob = datetime.strptime(dob, "%Y/%m/%d").date()
+            except ValueError:
+                return 0  # Return 0 if date parsing fails
+    
+    # Handle date objects
+    if not isinstance(dob, date):
+        return 0
+    
     today = date.today()
     return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 

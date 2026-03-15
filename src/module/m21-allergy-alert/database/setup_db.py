@@ -74,35 +74,35 @@ def seed_data(db_manager: DatabaseManager):
         {
             "_id": "patient_1",
             "name": "Arjun Sharma",
-            "dob": date(1990, 5, 10),
+            "dob": "1990-05-10",
             "sex": "M",
             "created_at": datetime.now()
         },
         {
             "_id": "patient_2", 
             "name": "Priya Singh",
-            "dob": date(1985, 11, 22),
+            "dob": "1985-11-22",
             "sex": "F",
             "created_at": datetime.now()
         },
         {
             "_id": "patient_3",
             "name": "Rahul Verma", 
-            "dob": date(2001, 3, 15),
+            "dob": "2001-03-15",
             "sex": "M",
             "created_at": datetime.now()
         },
         {
             "_id": "patient_4",
             "name": "Anita Gupta",
-            "dob": date(1978, 8, 30),
+            "dob": "1978-08-30",
             "sex": "F", 
             "created_at": datetime.now()
         },
         {
             "_id": "patient_5",
             "name": "Vikram Patel",
-            "dob": date(1995, 12, 5),
+            "dob": "1995-12-05",
             "sex": "M",
             "created_at": datetime.now()
         }
@@ -162,24 +162,24 @@ def seed_data(db_manager: DatabaseManager):
     # Insert Patient Allergies
     patient_allergies_data = [
         # Arjun Sharma (patient_1) - allergic to Penicillin and Peanuts
-        {"patient_id": "patient_1", "allergy_id": "allergy_1", "date_recorded": date(2023, 1, 10), "notes": "Severe rash and swelling observed during previous treatment"},
-        {"patient_id": "patient_1", "allergy_id": "allergy_7", "date_recorded": date(2022, 5, 15), "notes": "Anaphylactic reaction to peanut exposure"},
+        {"patient_id": "patient_1", "allergy_id": "allergy_1", "date_recorded": "2023-01-10", "notes": "Severe rash and swelling observed during previous treatment"},
+        {"patient_id": "patient_1", "allergy_id": "allergy_7", "date_recorded": "2022-05-15", "notes": "Anaphylactic reaction to peanut exposure"},
         
         # Priya Singh (patient_2) - allergic to NSAIDs and Shellfish
-        {"patient_id": "patient_2", "allergy_id": "allergy_6", "date_recorded": date(2022, 6, 5), "notes": "GI distress and stomach ulcers from NSAID use"},
-        {"patient_id": "patient_2", "allergy_id": "allergy_8", "date_recorded": date(2021, 3, 20), "notes": "Hives and difficulty breathing after shellfish consumption"},
+        {"patient_id": "patient_2", "allergy_id": "allergy_6", "date_recorded": "2022-06-05", "notes": "GI distress and stomach ulcers from NSAID use"},
+        {"patient_id": "patient_2", "allergy_id": "allergy_8", "date_recorded": "2021-03-20", "notes": "Hives and difficulty breathing after shellfish consumption"},
         
         # Rahul Verma (patient_3) - allergic to Sulfonamides and Ibuprofen
-        {"patient_id": "patient_3", "allergy_id": "allergy_4", "date_recorded": date(2024, 2, 20), "notes": "Anaphylaxis history with sulfonamide antibiotics"},
-        {"patient_id": "patient_3", "allergy_id": "allergy_11", "date_recorded": date(2023, 8, 10), "notes": "Severe allergic reaction to ibuprofen"},
+        {"patient_id": "patient_3", "allergy_id": "allergy_4", "date_recorded": "2024-02-20", "notes": "Anaphylaxis history with sulfonamide antibiotics"},
+        {"patient_id": "patient_3", "allergy_id": "allergy_11", "date_recorded": "2023-08-10", "notes": "Severe allergic reaction to ibuprofen"},
         
         # Anita Gupta (patient_4) - allergic to Cephalosporins and Latex
-        {"patient_id": "patient_4", "allergy_id": "allergy_5", "date_recorded": date(2020, 11, 12), "notes": "Cross-reactivity concern due to penicillin allergy family history"},
-        {"patient_id": "patient_4", "allergy_id": "allergy_9", "date_recorded": date(2019, 7, 8), "notes": "Contact dermatitis from latex gloves"},
+        {"patient_id": "patient_4", "allergy_id": "allergy_5", "date_recorded": "2020-11-12", "notes": "Cross-reactivity concern due to penicillin allergy family history"},
+        {"patient_id": "patient_4", "allergy_id": "allergy_9", "date_recorded": "2019-07-08", "notes": "Contact dermatitis from latex gloves"},
         
         # Vikram Patel (patient_5) - allergic to Codeine and Dust Mites
-        {"patient_id": "patient_5", "allergy_id": "allergy_12", "date_recorded": date(2023, 4, 18), "notes": "Respiratory depression and nausea with codeine"},
-        {"patient_id": "patient_5", "allergy_id": "allergy_10", "date_recorded": date(2022, 1, 25), "notes": "Chronic asthma triggered by dust mites"}
+        {"patient_id": "patient_5", "allergy_id": "allergy_12", "date_recorded": "2023-04-18", "notes": "Respiratory depression and nausea with codeine"},
+        {"patient_id": "patient_5", "allergy_id": "allergy_10", "date_recorded": "2022-01-25", "notes": "Chronic asthma triggered by dust mites"}
     ]
     
     for pa in patient_allergies_data:
@@ -281,16 +281,16 @@ def seed_data(db_manager: DatabaseManager):
     # Insert Sample Prescriptions
     prescriptions_data = [
         # Safe prescriptions
-        {"_id": "prescription_1", "patient_id": "patient_1", "med_id": "med_8", "dose": "500mg", "frequency": "Once daily", "start_date": date(2026, 3, 15), "status": "Pending"},
-        {"_id": "prescription_2", "patient_id": "patient_2", "med_id": "med_12", "dose": "500mg", "frequency": "Every 6 hours", "start_date": date(2026, 3, 16), "status": "Pending"},
-        {"_id": "prescription_3", "patient_id": "patient_5", "med_id": "med_15", "dose": "250mg", "frequency": "Twice daily", "start_date": date(2026, 3, 17), "status": "Pending"},
+        {"_id": "prescription_1", "patient_id": "patient_1", "med_id": "med_8", "dose": "500mg", "frequency": "Once daily", "start_date": "2026-03-15", "status": "Pending"},
+        {"_id": "prescription_2", "patient_id": "patient_2", "med_id": "med_12", "dose": "500mg", "frequency": "Every 6 hours", "start_date": "2026-03-16", "status": "Pending"},
+        {"_id": "prescription_3", "patient_id": "patient_5", "med_id": "med_15", "dose": "250mg", "frequency": "Twice daily", "start_date": "2026-03-17", "status": "Pending"},
         
         # Problematic prescriptions (will trigger alerts)
-        {"_id": "prescription_4", "patient_id": "patient_1", "med_id": "med_1", "dose": "500mg", "frequency": "Three times daily", "start_date": date(2026, 3, 18), "status": "Pending"},
-        {"_id": "prescription_5", "patient_id": "patient_2", "med_id": "med_5", "dose": "400mg", "frequency": "Every 8 hours", "start_date": date(2026, 3, 19), "status": "Pending"},
-        {"_id": "prescription_6", "patient_id": "patient_3", "med_id": "med_10", "dose": "800mg", "frequency": "Twice daily", "start_date": date(2026, 3, 20), "status": "Pending"},
-        {"_id": "prescription_7", "patient_id": "patient_1", "med_id": "med_3", "dose": "250mg", "frequency": "Four times daily", "start_date": date(2026, 3, 21), "status": "Pending"},
-        {"_id": "prescription_8", "patient_id": "patient_4", "med_id": "med_4", "dose": "500mg", "frequency": "Twice daily", "start_date": date(2026, 3, 22), "status": "Pending"}
+        {"_id": "prescription_4", "patient_id": "patient_1", "med_id": "med_1", "dose": "500mg", "frequency": "Three times daily", "start_date": "2026-03-18", "status": "Pending"},
+        {"_id": "prescription_5", "patient_id": "patient_2", "med_id": "med_5", "dose": "400mg", "frequency": "Every 8 hours", "start_date": "2026-03-19", "status": "Pending"},
+        {"_id": "prescription_6", "patient_id": "patient_3", "med_id": "med_10", "dose": "800mg", "frequency": "Twice daily", "start_date": "2026-03-20", "status": "Pending"},
+        {"_id": "prescription_7", "patient_id": "patient_1", "med_id": "med_3", "dose": "250mg", "frequency": "Four times daily", "start_date": "2026-03-21", "status": "Pending"},
+        {"_id": "prescription_8", "patient_id": "patient_4", "med_id": "med_4", "dose": "500mg", "frequency": "Twice daily", "start_date": "2026-03-22", "status": "Pending"}
     ]
     
     for prescription in prescriptions_data:
