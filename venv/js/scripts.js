@@ -1,10 +1,11 @@
-// ⚠️ IMPORTANT: Replace with your backend URL (NOT localhost)
+// 🔴 Replace with your backend URL
 const BASE_URL = "https://your-backend-url.onrender.com";
 
 
-// ✅ Save Patient (POST)
-function savePatient() {
+// ================= PATIENT =================
 
+// Save Patient
+function savePatient() {
   let name = document.getElementById("pname").value.trim();
   let allergy = document.getElementById("pallergy").value.trim();
 
@@ -15,49 +16,26 @@ function savePatient() {
 
   fetch(`${BASE_URL}/patients`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ name, allergy })
   })
-  .then(res => {
-    if (!res.ok) throw new Error("Server error");
-    return res.json();
-  })
-  .then(() => {
-    alert("✅ Patient saved");
-    document.getElementById("pname").value = "";
-    document.getElementById("pallergy").value = "";
-  })
-  .catch(err => {
-    console.error(err);
-    alert("❌ Cannot connect to backend");
-  });
+  .then(res => res.json())
+  .then(() => alert("Patient added"))
+  .catch(() => alert("Error"));
 }
 
 
-// ✅ Load Patients (GET)
+// Load Patients
 function loadPatients() {
-
   let table = document.getElementById("patientTable");
 
   fetch(`${BASE_URL}/patients`)
-  .then(res => {
-    if (!res.ok) throw new Error("Fetch failed");
-    return res.json();
-  })
-  .then(patients => {
+  .then(res => res.json())
+  .then(data => {
 
     table.innerHTML = "";
 
-    if (patients.length === 0) {
-      let row = table.insertRow();
-      row.insertCell(0).innerText = "No patients found";
-      return;
-    }
-
-    patients.forEach(p => {
-
+    data.forEach(p => {
       let row = table.insertRow();
 
       row.insertCell(0).innerText = p.name;
@@ -66,85 +44,97 @@ function loadPatients() {
       let btn = document.createElement("button");
       btn.innerText = "Check";
 
-      btn.onclick = function () {
+      btn.onclick = () => {
         localStorage.setItem("selectedAllergy", p.allergy);
         window.location.href = "medication.html";
       };
 
       row.insertCell(2).appendChild(btn);
-
     });
 
-  })
-  .catch(err => {
-    console.error(err);
-    alert("❌ Cannot load patients");
   });
 }
 
 
-// ✅ Search Patient (Frontend)
-function searchPatient() {
+// ================= MEDICATION =================
 
-  let filter = document.getElementById("search").value.toLowerCase();
-  let rows = document.querySelectorAll("#patientTable tr");
-
-  rows.forEach(r => {
-
-    if (r.cells.length > 0) {
-      let name = r.cells[0].innerText.toLowerCase();
-
-      r.style.display = name.includes(filter) ? "" : "none";
-    }
-
-  });
-}
-
-
-// ✅ Medication Check (POST)
 function checkMedication() {
-
-  let allergy = document.getElementById("allergy").value.trim();
-  let drug = document.getElementById("drug").value.trim();
-
-  if (allergy === "" || drug === "") {
-    alert("Enter details");
-    return;
-  }
+  let allergy = document.getElementById("allergy").value;
+  let drug = document.getElementById("drug").value;
 
   fetch(`${BASE_URL}/check-medication`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
+    headers: {"Content-Type":"application/json"},
     body: JSON.stringify({ allergy, drug })
   })
-  .then(res => {
-    if (!res.ok) throw new Error("Server error");
-    return res.json();
-  })
+  .then(res => res.json())
   .then(data => {
-
-    document.getElementById("result").innerHTML = `
-      <p><strong>Alert:</strong> ${data.alert}</p>
-      <p><strong>Alternative:</strong> ${data.alternative || "None"}</p>
-    `;
-
-  })
-  .catch(err => {
-    console.error(err);
-    alert("❌ Backend error");
+    document.getElementById("result").innerHTML =
+      `Alert: ${data.alert} <br> Alternative: ${data.alternative}`;
   });
 }
 
 
-// ✅ Auto-fill Allergy from Dashboard
+// Auto-fill allergy
 window.onload = function () {
-
   let allergy = localStorage.getItem("selectedAllergy");
 
   if (document.getElementById("allergy") && allergy) {
     document.getElementById("allergy").value = allergy;
   }
-
 };
+
+
+// ================= DOCTOR =================
+
+// Add Doctor
+function addDoctor() {
+
+  let name = document.getElementById("dname").value.trim();
+  let specialization = document.getElementById("dspecialization").value.trim();
+
+  if (name === "" || specialization === "") {
+    alert("Fill all fields");
+    return;
+  }
+
+  fetch(`${BASE_URL}/doctors`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      name: name,
+      specialization: specialization
+    })
+  })
+  .then(res => res.json())
+  .then(() => {
+    alert("Doctor added");
+    document.getElementById("dname").value = "";
+    document.getElementById("dspecialization").value = "";
+  })
+  .catch(() => alert("Backend error"));
+}
+
+
+// Load Doctors
+function loadDoctors() {
+
+  let list = document.getElementById("doctorList");
+
+  fetch(`${BASE_URL}/doctors`)
+  .then(res => res.json())
+  .then(data => {
+
+    list.innerHTML = "";
+
+    data.forEach(d => {
+      let li = document.createElement("li");
+      li.innerText = `${d.name} - ${d.specialization}`;
+      list.appendChild(li);
+    });
+
+  })
+  .catch(() => alert("Cannot load doctors"));
+}
