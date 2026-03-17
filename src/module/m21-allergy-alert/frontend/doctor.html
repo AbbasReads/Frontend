@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Doctors</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h2>Doctor Management</h2>
+
+<h3>Add Doctor</h3>
+
+<input type="text" id="dname" placeholder="Doctor Name"><br><br>
+<input type="text" id="dspecialization" placeholder="Specialization"><br><br>
+
+<button onclick="addDoctor()">Add Doctor</button>
+
+<hr>
+
+<h3>Doctor List</h3>
+<button onclick="loadDoctors()">Load Doctors</button>
+
+<ul id="doctorList"></ul>
+
+<br>
+<a href="index.html">Add Patient</a><br>
+<a href="dashboard.html">Dashboard</a>
+
+<script src="script.js"></script>
+</body>
+</html>
