@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<h2>Patient Dashboard</h2>
+
+<input type="text" id="search" placeholder="Search patient" onkeyup="searchPatient()"><br><br>
+
+<button onclick="loadPatients()">Load Patients</button>
+
+<table border="1" align="center">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Allergy</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody id="patientTable"></tbody>
+</table>
+
+<br>
+<a href="index.html">Add Patient</a><br>
+<a href="doctors.html">Doctors</a>
+
+<script src="script.js"></script>
+</body>
+</html>
