@@ -278,7 +278,7 @@ def handle_direct_request(endpoint, method="GET", data=None):
         return get_drug_classes_direct()
     
     elif endpoint.startswith("/api/v1/patient/") and endpoint.endswith("/allergies"):
-        patient_id = endpoint.split("/")[3]
+        patient_id = endpoint.split("/")[4]
         return get_patient_allergies_direct(patient_id)
     
     elif endpoint == "/api/v1/stats":
@@ -288,7 +288,7 @@ def handle_direct_request(endpoint, method="GET", data=None):
         return get_recent_alerts_direct()
     
     elif endpoint.startswith("/api/v1/medication/"):
-        med_id = endpoint.split("/")[3]
+        med_id = endpoint.split("/")[4]
         return get_medication_details_direct(med_id)
     
     elif endpoint == "/api/v1/validate" and method == "POST":
