@@ -54,7 +54,7 @@ class DatabaseManager:
             
             # Test connection with ping
             self.client.admin.command('ping')
-            logger.info(f"✅ Connected to MongoDB Atlas: {self.database_name}")
+            logger.info(f"Connected to MongoDB Atlas: {self.database_name}")
             
             # Auto-initialize database if empty
             self._auto_initialize()
@@ -62,7 +62,7 @@ class DatabaseManager:
             return True
             
         except Exception as e:
-            logger.error(f"❌ MongoDB Atlas connection failed: {e}")
+            logger.error(f"MongoDB Atlas connection failed: {e}")
             logger.error("Please check your connection string and network access in MongoDB Atlas")
             return False
     
@@ -73,7 +73,7 @@ class DatabaseManager:
             patients_count = self.get_collection("patients").count_documents({})
             
             if patients_count == 0:
-                logger.info("🌱 Database is empty, initializing with test data...")
+                logger.info("Database is empty, initializing with test data...")
                 
                 # Create indexes
                 self.create_indexes()
@@ -82,19 +82,19 @@ class DatabaseManager:
                 from database.setup_db import seed_data
                 seed_data(self)
                 
-                logger.info("✅ Database auto-initialization completed!")
+                logger.info("Database auto-initialization completed!")
             else:
-                logger.info(f"📊 Database already initialized with {patients_count} patients")
+                logger.info(f"Database already initialized with {patients_count} patients")
                 
         except Exception as e:
-            logger.error(f"❌ Database auto-initialization failed: {e}")
+            logger.error(f"Database auto-initialization failed: {e}")
             # Don't fail the connection, just log the error
     
     def disconnect(self):
         """Close MongoDB Atlas connection"""
         if self.client:
             self.client.close()
-            logger.info("🔌 MongoDB Atlas connection closed")
+            logger.info("MongoDB Atlas connection closed")
     
     def get_collection(self, collection_name: str) -> Collection:
         """Get MongoDB collection"""
@@ -143,16 +143,16 @@ class DatabaseManager:
             alert_log.create_index("alert_type")
             alert_log.create_index("logged_at")
             
-            logger.info("✅ Database indexes created successfully")
+            logger.info("Database indexes created successfully")
             
         except Exception as e:
-            logger.error(f"❌ Failed to create indexes: {e}")
+            logger.error(f"Failed to create indexes: {e}")
     
     def drop_database(self):
         """Drop the entire database (use with caution)"""
         if self.client:
             self.client.drop_database(self.database_name)
-            logger.info(f"🗑️ Database {self.database_name} dropped")
+            logger.info(f"Database {self.database_name} dropped")
 
 
 class AllergyCheckService:

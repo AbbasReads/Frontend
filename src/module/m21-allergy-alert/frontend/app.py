@@ -15,66 +15,231 @@ from shared.models import *
 # Configure Streamlit page
 st.set_page_config(
     page_title="M21 Allergy Alert System",
-    page_icon="🏥",
+    page_icon="⚕",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
+# Custom CSS - Clinical shadcn-inspired design
 st.markdown("""
 <style>
-    .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 1rem;
-        border-radius: 10px;
-        text-align: center;
-        margin-bottom: 2rem;
+    /* Import Inter font for clinical look */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Global styles */
+    .main {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     
+    /* Header styling */
+    .clinical-header {
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        text-align: center;
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    }
+    
+    .clinical-header h1 {
+        color: #0f172a;
+        font-weight: 600;
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .clinical-header p {
+        color: #64748b;
+        font-weight: 400;
+        margin: 0.25rem 0;
+    }
+    
+    /* Alert components */
     .alert-success {
-        background-color: #d4edda;
-        border: 1px solid #c3e6cb;
-        color: #155724;
+        background-color: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-left: 4px solid #22c55e;
+        color: #15803d;
         padding: 1rem;
-        border-radius: 5px;
+        border-radius: 6px;
         margin: 1rem 0;
+        font-weight: 500;
     }
     
     .alert-danger {
-        background-color: #f8d7da;
-        border: 1px solid #f5c6cb;
-        color: #721c24;
+        background-color: #fef2f2;
+        border: 1px solid #fecaca;
+        border-left: 4px solid #ef4444;
+        color: #dc2626;
         padding: 1rem;
-        border-radius: 5px;
+        border-radius: 6px;
         margin: 1rem 0;
+        font-weight: 500;
     }
     
     .alert-warning {
-        background-color: #fff3cd;
-        border: 1px solid #ffeaa7;
-        color: #856404;
+        background-color: #fffbeb;
+        border: 1px solid #fed7aa;
+        border-left: 4px solid #f59e0b;
+        color: #d97706;
         padding: 1rem;
-        border-radius: 5px;
+        border-radius: 6px;
         margin: 1rem 0;
+        font-weight: 500;
     }
     
+    .alert-info {
+        background-color: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-left: 4px solid #3b82f6;
+        color: #1d4ed8;
+        padding: 1rem;
+        border-radius: 6px;
+        margin: 1rem 0;
+        font-weight: 500;
+    }
+    
+    /* Card components */
+    .clinical-card {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    }
+    
+    .clinical-card h3 {
+        color: #0f172a;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        font-size: 1.125rem;
+    }
+    
+    /* Status indicators */
+    .status-connected {
+        color: #22c55e;
+        font-weight: 600;
+    }
+    
+    .status-disconnected {
+        color: #ef4444;
+        font-weight: 600;
+    }
+    
+    .status-warning {
+        color: #f59e0b;
+        font-weight: 600;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background-color: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        font-family: 'Inter', sans-serif;
+        transition: background-color 0.2s;
+    }
+    
+    .stButton > button:hover {
+        background-color: #2563eb;
+    }
+    
+    /* Metric styling */
     .metric-card {
         background: white;
-        padding: 1rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 1.5rem;
         text-align: center;
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
     }
     
-    .code-block {
-        background-color: #f8f9fa;
-        border: 1px solid #e9ecef;
-        border-radius: 4px;
-        padding: 1rem;
-        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-        font-size: 0.85rem;
-        overflow-x: auto;
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.5rem;
+    }
+    
+    .metric-label {
+        color: #64748b;
+        font-weight: 500;
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    /* Table styling */
+    .clinical-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1rem 0;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    }
+    
+    .clinical-table th {
+        background-color: #f8fafc;
+        color: #374151;
+        font-weight: 600;
+        padding: 0.75rem;
+        text-align: left;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .clinical-table td {
+        padding: 0.75rem;
+        border-bottom: 1px solid #f1f5f9;
+        color: #374151;
+    }
+    
+    .clinical-table tr:hover {
+        background-color: #f8fafc;
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background-color: #f8fafc;
+    }
+    
+    /* Remove default streamlit styling */
+    .css-1v0mbdj.etr89bj1 {
+        display: none;
+    }
+    
+    /* Footer styling */
+    .clinical-footer {
+        border-top: 1px solid #e2e8f0;
+        padding-top: 2rem;
+        margin-top: 3rem;
+        text-align: center;
+        color: #64748b;
+        font-size: 0.875rem;
+    }
+    
+    /* Form styling */
+    .stSelectbox > div > div {
+        border-radius: 6px;
+        border: 1px solid #d1d5db;
+    }
+    
+    .stTextInput > div > div > input {
+        border-radius: 6px;
+        border: 1px solid #d1d5db;
+    }
+    
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background-color: #f8fafc;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -464,8 +629,8 @@ def validate_prescription_direct(data):
 def display_header():
     """Display main header"""
     st.markdown("""
-    <div class="main-header">
-        <h1>🏥 Module 21: Allergy-Aware Medication Alert System</h1>
+    <div class="clinical-header">
+        <h1>Module 21: Allergy-Aware Medication Alert System</h1>
         <p>Database Management Systems Project - IIT(ISM) Dhanbad</p>
         <p><strong>Technology Stack:</strong> Python • Streamlit • MongoDB Atlas</p>
         <p><strong>Deployment:</strong> Streamlit Cloud Ready</p>
@@ -475,7 +640,7 @@ def display_header():
 
 def prescription_validator():
     """Prescription Validator Page"""
-    st.header("💊 Prescription Validator")
+    st.header("Prescription Validator")
     st.write("Submit a new prescription to check for allergy conflicts using our 3-level cascade system.")
     
     # Fetch patients and medications
@@ -513,7 +678,7 @@ def prescription_validator():
         start_date = st.date_input("Start Date", value=date.today())
         
         # Submit button
-        if st.button("🔍 Check & Submit Prescription", type="primary"):
+        if st.button("Check & Submit Prescription", type="primary"):
             if all([selected_patient_id, selected_med_id, dose, frequency]):
                 # Make validation request
                 request_data = {
@@ -560,7 +725,7 @@ def prescription_validator():
         if result['status'] == 'SAFE':
             st.markdown(f"""
             <div class="alert-success">
-                <h3>✅ PRESCRIPTION APPROVED</h3>
+                <h3>PRESCRIPTION APPROVED</h3>
                 <p><strong>Status:</strong> {result['status']}</p>
                 <p><strong>Message:</strong> {result['message']}</p>
                 <p><strong>Prescription ID:</strong> {result['prescription_id']}</p>
@@ -571,7 +736,7 @@ def prescription_validator():
         else:
             st.markdown(f"""
             <div class="alert-danger">
-                <h3>⚠️ ALLERGY ALERT</h3>
+                <h3>ALLERGY ALERT</h3>
                 <p><strong>Alert Type:</strong> {result.get('alert_type', 'ALERT')}</p>
                 <p><strong>Message:</strong> {result['message']}</p>
                 <p><strong>Prescription ID:</strong> {result['prescription_id']}</p>
@@ -581,7 +746,7 @@ def prescription_validator():
             
             # Display alternatives
             if result.get('alternatives'):
-                st.subheader("🔄 Safe Alternatives")
+                st.subheader("Safe Alternatives")
                 
                 # Create table manually without pandas
                 if result['alternatives']:
@@ -593,7 +758,7 @@ def prescription_validator():
                     st.info("No alternatives available")
     
     # Information about the checking system
-    st.subheader("🔍 How the 3-Level Cascade Check Works")
+    st.subheader("How the 3-Level Cascade Check Works")
     st.write("""
     1. **Exact Match:** Is the prescribed drug exactly in the patient's allergy list?
     2. **Drug Class Match:** Does the drug belong to a drug class the patient is allergic to?
@@ -606,7 +771,7 @@ def prescription_validator():
 
 def allergy_profile():
     """Patient Allergy Profile Page"""
-    st.header("👤 Patient Allergy Profile Viewer")
+    st.header("Patient Allergy Profile Viewer")
     st.write("Select a patient to view their complete allergy profile and cross-reactivity risks.")
     
     # Fetch patients
@@ -641,36 +806,36 @@ def allergy_profile():
             col1, col2 = st.columns(2)
             
             with col1:
-                st.subheader("🚨 Known Allergies")
+                st.subheader("Known Allergies")
                 if allergies:
                     # Display allergies without pandas
                     for allergy in allergies:
-                        with st.expander(f"🚨 {allergy['allergy_name']} ({allergy['allergy_type']})"):
+                        with st.expander(f"{allergy['allergy_name']} ({allergy['allergy_type']})"):
                             st.write(f"**Date Recorded:** {allergy['date_recorded']}")
                             st.write(f"**Notes:** {allergy.get('notes', 'No notes')}")
                 else:
-                    st.success("✅ No known allergies recorded for this patient")
+                    st.success("No known allergies recorded for this patient")
             
             with col2:
-                st.subheader("⚠️ Cross-Reactivity Risk Profile")
+                st.subheader("Cross-Reactivity Risk Profile")
                 high_risk_items = [item for item in risk_profile if item.get('reactive_drug') and item.get('risk_score', 0) > 0.5]
                 
                 if high_risk_items:
                     # Display risk items without pandas
                     for risk in high_risk_items:
-                        risk_color = "🔴" if risk.get('risk_level') == 'Critical' else "🟡" if risk.get('risk_level') == 'High' else "🟢"
-                        with st.expander(f"{risk_color} {risk['allergy_name']} → {risk['reactive_drug']}"):
+                        risk_indicator = "CRITICAL" if risk.get('risk_level') == 'Critical' else "HIGH" if risk.get('risk_level') == 'High' else "MEDIUM"
+                        with st.expander(f"[{risk_indicator}] {risk['allergy_name']} → {risk['reactive_drug']}"):
                             st.write(f"**Risk Level:** {risk.get('risk_level', 'Unknown')}")
                             st.write(f"**Risk Score:** {risk.get('risk_score', 0):.2f}")
                 else:
-                    st.success("✅ No high-risk cross-reactivity medications found")
+                    st.success("No high-risk cross-reactivity medications found")
         else:
             st.error("Failed to load patient allergy data")
 
 
 def alert_log():
     """Alert Log Page"""
-    st.header("📋 Alert Log & Audit Trail")
+    st.header("Alert Log & Audit Trail")
     st.write("Complete history of all allergy checks and alerts generated by the system.")
     
     # Fetch recent alerts
@@ -704,14 +869,14 @@ def alert_log():
                 filtered_alerts = [a for a in filtered_alerts if a['patient_name'] == selected_patient]
             
             # Display filtered results
-            st.subheader(f"🚨 Alert History ({len(filtered_alerts)} alerts)")
+            st.subheader(f"Alert History ({len(filtered_alerts)} alerts)")
             
             # Display alerts without pandas
             for alert in filtered_alerts:
-                alert_color = "🔴" if alert['alert_type'] in ['EXACT_MATCH', 'CLASS_MATCH', 'CROSS_REACTIVITY'] else "🟢"
+                alert_status = "CRITICAL" if alert['alert_type'] in ['EXACT_MATCH', 'CLASS_MATCH', 'CROSS_REACTIVITY'] else "SAFE"
                 logged_time = datetime.fromisoformat(alert['logged_at'].replace('Z', '+00:00')) if isinstance(alert['logged_at'], str) else alert['logged_at']
                 
-                with st.expander(f"{alert_color} {alert['patient_name']} - {alert['med_name']} ({alert['alert_type']})"):
+                with st.expander(f"[{alert_status}] {alert['patient_name']} - {alert['med_name']} ({alert['alert_type']})"):
                     st.write(f"**Alert Type:** {alert['alert_type']}")
                     st.write(f"**Message:** {alert['alert_message']}")
                     st.write(f"**Prescription Status:** {alert.get('prescription_status', 'N/A')}")
@@ -725,7 +890,7 @@ def alert_log():
 
 def statistics_panel():
     """Statistics Panel Page"""
-    st.header("📊 System Statistics")
+    st.header("System Statistics")
     st.write("Overview of allergy alerts, prescriptions, and system performance metrics.")
     
     # Fetch statistics
@@ -739,53 +904,53 @@ def statistics_panel():
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("👥 Total Patients", additional_stats["total_patients"])
+            st.metric("Total Patients", additional_stats["total_patients"])
         
         with col2:
-            st.metric("💊 Total Medications", additional_stats["total_medications"])
+            st.metric("Total Medications", additional_stats["total_medications"])
         
         with col3:
-            st.metric("📋 Total Prescriptions", additional_stats["total_prescriptions"])
+            st.metric("Total Prescriptions", additional_stats["total_prescriptions"])
         
         with col4:
-            st.metric("⚠️ High Risk Rules", additional_stats["high_risk_rules"])
+            st.metric("High Risk Rules", additional_stats["high_risk_rules"])
         
         # Alert statistics charts
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("🚨 Alert Type Distribution")
+            st.subheader("Alert Type Distribution")
             if alert_stats:
                 # Create simple bar chart data
                 chart_data = {item['alert_type']: item['total'] for item in alert_stats}
                 st.bar_chart(chart_data)
         
         with col2:
-            st.subheader("📈 Alert Breakdown")
+            st.subheader("Alert Breakdown")
             if alert_stats:
                 # Display as metrics instead of pie chart
                 for stat in alert_stats:
-                    color = "🔴" if stat['alert_type'] in ['EXACT_MATCH', 'CLASS_MATCH', 'CROSS_REACTIVITY'] else "🟢"
-                    st.metric(f"{color} {stat['alert_type']}", stat['total'])
+                    status_indicator = "CRITICAL" if stat['alert_type'] in ['EXACT_MATCH', 'CLASS_MATCH', 'CROSS_REACTIVITY'] else "SAFE"
+                    st.metric(f"[{status_indicator}] {stat['alert_type']}", stat['total'])
         
         # Prescription status breakdown
         if additional_stats.get("prescription_stats"):
-            st.subheader("💊 Prescription Status")
+            st.subheader("Prescription Status")
             prescription_stats = additional_stats["prescription_stats"]
             
             col1, col2, col3 = st.columns(3)
             
             with col1:
-                st.metric("✅ Approved", prescription_stats.get("Approved", 0))
+                st.metric("Approved", prescription_stats.get("Approved", 0))
             
             with col2:
-                st.metric("❌ Rejected", prescription_stats.get("Rejected", 0))
+                st.metric("Rejected", prescription_stats.get("Rejected", 0))
             
             with col3:
-                st.metric("⏳ Pending", prescription_stats.get("Pending", 0))
+                st.metric("Pending", prescription_stats.get("Pending", 0))
         
         # Safety metrics
-        st.subheader("🎯 Key Performance Indicators")
+        st.subheader("Key Performance Indicators")
         
         total_alerts = sum(item['total'] for item in alert_stats)
         safe_count = next((item['total'] for item in alert_stats if item['alert_type'] == 'SAFE'), 0)
@@ -800,13 +965,13 @@ def statistics_panel():
         col1, col2, col3 = st.columns(3)
         
         with col1:
-            st.metric("✅ Safety Rate", f"{safety_rate:.1f}%")
+            st.metric("Safety Rate", f"{safety_rate:.1f}%")
         
         with col2:
-            st.metric("🚨 Alert Rate", f"{alert_rate:.1f}%")
+            st.metric("Alert Rate", f"{alert_rate:.1f}%")
         
         with col3:
-            st.metric("📈 Total Checks", total_alerts)
+            st.metric("Total Checks", total_alerts)
         
     else:
         st.error("Failed to load statistics")
@@ -814,7 +979,7 @@ def statistics_panel():
 
 def medication_browser():
     """Medication Browser Page"""
-    st.header("💊 Medication & Alternatives Browser")
+    st.header("Medication & Alternatives Browser")
     st.write("Explore medications, their drug classes, safe alternatives, and cross-reactivity information.")
     
     # Fetch medications and drug classes
@@ -831,7 +996,7 @@ def medication_browser():
     col1, col2 = st.columns([1, 2])
     
     with col1:
-        st.subheader("📋 Medication List")
+        st.subheader("Medication List")
         
         # Drug class filter
         class_options = ["All Classes"] + [dc["drug_class"] for dc in drug_classes]
@@ -860,7 +1025,7 @@ def medication_browser():
                 alternatives = med_details["alternatives"]
                 cross_reactivity = med_details["cross_reactivity"]
                 
-                st.subheader("🔍 Medication Details")
+                st.subheader("Medication Details")
                 
                 st.info(f"""
                 **Name:** {medication['med_name']}  
@@ -871,27 +1036,27 @@ def medication_browser():
                 
                 # Alternatives
                 if alternatives:
-                    st.subheader("🔄 Safe Alternatives")
+                    st.subheader("Safe Alternatives")
                     for alt in alternatives:
                         st.write(f"**{alt['med_name']}** ({alt['drug_class']}) - {alt['reason']}")
                 
                 # Cross-reactivity warnings
                 if cross_reactivity:
-                    st.subheader("⚠️ Cross-Reactivity Warnings")
+                    st.subheader("Cross-Reactivity Warnings")
                     for cross in cross_reactivity:
-                        risk_color = "🔴" if cross['risk_level'] == 'Critical' else "🟡" if cross['risk_level'] == 'High' else "🟢"
-                        st.write(f"{risk_color} **{cross['allergy_name']}** - {cross['risk_level']} (Score: {cross['risk_score']})")
+                        risk_level = cross['risk_level']
+                        st.write(f"**{cross['allergy_name']}** - {risk_level} (Score: {cross['risk_score']})")
                 
                 if not alternatives and not cross_reactivity:
-                    st.success("✅ No specific alternatives or cross-reactivity warnings found for this medication.")
+                    st.success("No specific alternatives or cross-reactivity warnings found for this medication.")
         else:
-            st.info("👈 Select a medication from the list to view detailed information")
+            st.info("Select a medication from the list to view detailed information")
     
     # Drug class overview
-    st.subheader("📊 Drug Class Overview")
+    st.subheader("Drug Class Overview")
     if drug_classes:
         for drug_class in drug_classes:
-            with st.expander(f"💊 {drug_class['drug_class']} ({drug_class['medication_count']} medications)"):
+            with st.expander(f"{drug_class['drug_class']} ({drug_class['medication_count']} medications)"):
                 st.write(f"**Examples:** {', '.join(drug_class.get('medications', [])[:3])}")
                 if len(drug_class.get('medications', [])) > 3:
                     st.write("...and more")
@@ -904,11 +1069,11 @@ def main():
     # Sidebar navigation
     st.sidebar.title("Navigation")
     pages = {
-        "💊 Prescription Validator": prescription_validator,
-        "👤 Patient Allergies": allergy_profile,
-        "📋 Alert Log": alert_log,
-        "📊 Statistics": statistics_panel,
-        "💊 Medications": medication_browser
+        "Prescription Validator": prescription_validator,
+        "Patient Allergies": allergy_profile,
+        "Alert Log": alert_log,
+        "Statistics": statistics_panel,
+        "Medications": medication_browser
     }
     
     selected_page = st.sidebar.selectbox("Choose a page", list(pages.keys()))
@@ -917,19 +1082,18 @@ def main():
     try:
         health_data = make_api_request("/health")
         if health_data and health_data.get("status") == "OK":
-            st.sidebar.success("✅ Database Connected")
+            st.sidebar.markdown('<p class="status-connected">Database Connected</p>', unsafe_allow_html=True)
         else:
-            st.sidebar.error("❌ Database Disconnected")
+            st.sidebar.markdown('<p class="status-disconnected">Database Disconnected</p>', unsafe_allow_html=True)
     except:
-        st.sidebar.warning("⚠️ Connecting to Database...")
+        st.sidebar.markdown('<p class="status-warning">Connecting to Database...</p>', unsafe_allow_html=True)
     
     # Display selected page
     pages[selected_page]()
     
     # Footer
-    st.markdown("---")
     st.markdown("""
-    <div style="text-align: center; color: #666; font-size: 0.9rem;">
+    <div class="clinical-footer">
         <p><strong>Features:</strong> 9 Collections • MongoDB Atlas • 3-Level Cascade Checking</p>
         <p><strong>Technology:</strong> Python • Streamlit • MongoDB Atlas • Plotly</p>
         <p><strong>Deployment:</strong> Streamlit Cloud + MongoDB Atlas</p>
