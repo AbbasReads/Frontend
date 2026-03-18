@@ -347,79 +347,90 @@ def get_drug_classes_direct():
 
 
 def get_patient_allergies_direct(patient_id):
-    """Get patient allergies directly from database"""
+    """Get patient allergies directly from database with robust handling"""
     from shared.database import db_manager
     from shared.models import get_age
+    import logging
     
-    # Get patient info
-    patient = db_manager.get_collection("patients").find_one({"_id": patient_id})
-    if not patient:
-        return {"success": False, "error": "Patient not found"}
+    logger = logging.getLogger(__name__)
     
-    # Get patient allergies with details
-    pipeline = [
-        {"$match": {"patient_id": patient_id}},
-        {"$lookup": {
-            "from": "allergies",
-            "localField": "allergy_id",
-            "foreignField": "_id",
-            "as": "allergy_details"
-        }},
-        {"$unwind": "$allergy_details"},
-        {"$project": {
-            "allergy_id": "$allergy_id",
-            "allergy_name": "$allergy_details.allergy_name",
-            "allergy_type": "$allergy_details.allergy_type",
-            "date_recorded": "$date_recorded",
-            "notes": "$notes"
-        }}
-    ]
-    
-    allergies = list(db_manager.get_collection("patient_allergies").aggregate(pipeline))
-    
-    # Get risk profile
-    risk_pipeline = [
-        {"$match": {"patient_id": patient_id}},
-        {"$lookup": {
-            "from": "cross_reactivity_rules",
-            "localField": "allergy_id",
-            "foreignField": "allergen_id",
-            "as": "cross_rules"
-        }},
-        {"$unwind": {"path": "$cross_rules", "preserveNullAndEmptyArrays": True}},
-        {"$lookup": {
-            "from": "allergies",
-            "localField": "allergy_id",
-            "foreignField": "_id",
-            "as": "allergy_details"
-        }},
-        {"$unwind": "$allergy_details"},
-        {"$lookup": {
-            "from": "medications",
-            "localField": "cross_rules.reactive_med_id",
-            "foreignField": "_id",
-            "as": "reactive_med"
-        }},
-        {"$unwind": {"path": "$reactive_med", "preserveNullAndEmptyArrays": True}},
-        {"$project": {
-            "allergy_name": "$allergy_details.allergy_name",
-            "allergy_type": "$allergy_details.allergy_type",
-            "risk_level": "$cross_rules.risk_level",
-            "risk_score": "$cross_rules.risk_score",
-            "reactive_drug": "$reactive_med.med_name"
-        }}
-    ]
-    
-    risk_profile = list(db_manager.get_collection("patient_allergies").aggregate(risk_pipeline))
-    
-    patient["age"] = get_age(patient["dob"])
-    
-    return {
-        "success": True,
-        "patient": patient,
-        "allergies": allergies,
-        "risk_profile": risk_profile
-    }
+    try:
+        # Get patient info
+        patient = db_manager.get_collection("patients").find_one({"_id": patient_id})
+        if not patient:
+            logger.error(f"Patient not found: {patient_id}")
+            return {"success": False, "error": "Patient not found"}
+        
+        # Get patient allergies with details
+        # Added $ifNull to handle missing optional fields
+        pipeline = [
+            {"$match": {"patient_id": patient_id}},
+            {"$lookup": {
+                "from": "allergies",
+                "localField": "allergy_id",
+                "foreignField": "_id",
+                "as": "allergy_details"
+            }},
+            {"$unwind": {"path": "$allergy_details", "preserveNullAndEmptyArrays": True}},
+            {"$project": {
+                "allergy_id": "$allergy_id",
+                "allergy_name": {"$ifNull": ["$allergy_details.allergy_name", "Unknown Allergy"]},
+                "allergy_type": {"$ifNull": ["$allergy_details.allergy_type", "Other"]},
+                "date_recorded": {"$ifNull": ["$date_recorded", "N/A"]},
+                "notes": {"$ifNull": ["$notes", ""]}
+            }}
+        ]
+        
+        allergies = list(db_manager.get_collection("patient_allergies").aggregate(pipeline))
+        
+        # Get risk profile (cross-reactivity)
+        risk_pipeline = [
+            {"$match": {"patient_id": patient_id}},
+            {"$lookup": {
+                "from": "cross_reactivity_rules",
+                "localField": "allergy_id",
+                "foreignField": "allergen_id",
+                "as": "cross_rules"
+            }},
+            {"$unwind": {"path": "$cross_rules", "preserveNullAndEmptyArrays": False}},
+            {"$lookup": {
+                "from": "allergies",
+                "localField": "allergy_id",
+                "foreignField": "_id",
+                "as": "allergy_details"
+            }},
+            {"$unwind": {"path": "$allergy_details", "preserveNullAndEmptyArrays": True}},
+            {"$lookup": {
+                "from": "medications",
+                "localField": "cross_rules.reactive_med_id",
+                "foreignField": "_id",
+                "as": "reactive_med"
+            }},
+            {"$unwind": {"path": "$reactive_med", "preserveNullAndEmptyArrays": True}},
+            {"$project": {
+                "allergy_name": "$allergy_details.allergy_name",
+                "allergy_type": "$allergy_details.allergy_type",
+                "risk_level": "$cross_rules.risk_level",
+                "risk_score": "$cross_rules.risk_score",
+                "reactive_drug": "$reactive_med.med_name",
+                "drug_class": "$reactive_med.drug_class"
+            }}
+        ]
+        
+        risk_profile = list(db_manager.get_collection("patient_allergies").aggregate(risk_pipeline))
+        
+        # Calculate age safely
+        patient["age"] = get_age(patient.get("dob"))
+        
+        return {
+            "success": True,
+            "patient": patient,
+            "allergies": allergies,
+            "risk_profile": risk_profile
+        }
+    except Exception as e:
+        logger.exception(f"Error fetching patient allergy data for {patient_id}: {str(e)}")
+        return {"success": False, "error": str(e)}
 
 
 def get_stats_direct():
@@ -770,9 +781,10 @@ def prescription_validator():
 
 
 def create_allergy_network_graph(patient_id):
-    """Create interactive network graph showing allergy-medication relationships"""
+    """Create enhanced interactive network graph showing allergy-medication relationships"""
     from shared.database import db_manager
     import plotly.graph_objects as go
+    import math
     
     # Get patient allergies
     patient_allergies = list(db_manager.get_collection("patient_allergies").find(
@@ -788,6 +800,7 @@ def create_allergy_network_graph(patient_id):
     allergies = list(db_manager.get_collection("allergies").find(
         {"_id": {"$in": allergy_ids}}
     ))
+    allergy_map = {a["_id"]: a for a in allergies}
     
     # Get cross-reactivity rules
     cross_rules = list(db_manager.get_collection("cross_reactivity_rules").find(
@@ -799,154 +812,162 @@ def create_allergy_network_graph(patient_id):
         {"allergy_id": {"$in": allergy_ids}}
     ))
     
-    # Get medications involved
-    med_ids = [cr["reactive_med_id"] for cr in cross_rules]
+    # Get medications involved in cross-reactivity
+    med_ids = list(set([cr["reactive_med_id"] for cr in cross_rules]))
     medications = list(db_manager.get_collection("medications").find(
         {"_id": {"$in": med_ids}}
     )) if med_ids else []
     
-    # Also get medications by drug class
+    # Also get all medications by drug class
     drug_classes = list(set([dca["drug_class"] for dca in drug_class_allergies]))
     class_medications = list(db_manager.get_collection("medications").find(
         {"drug_class": {"$in": drug_classes}}
     )) if drug_classes else []
     
-    # Build graph data
+    # Merge and build med map
+    all_meds = {m["_id"]: m for m in medications + class_medications}
+    med_list = list(all_meds.values())
+    
+    # Build graph data structures
     nodes = []
     edges = []
-    node_positions = {}
     
-    # Center: Patient
+    # 1. Center: Patient
     nodes.append({
         "id": "patient",
-        "label": "Patient",
+        "label": f"Patient",
         "type": "patient",
         "x": 0,
         "y": 0,
-        "size": 30,
-        "color": "#3b82f6"
+        "size": 35,
+        "color": "#2563eb",
+        "hover": "Patient Node"
     })
     
-    # Layer 1: Allergies (circle around patient)
-    import math
+    # 2. Layer 1: Allergies (Inner-Middle Circle)
     num_allergies = len(allergies)
     for i, allergy in enumerate(allergies):
-        angle = 2 * math.pi * i / num_allergies
-        x = 1.5 * math.cos(angle)
-        y = 1.5 * math.sin(angle)
+        angle = 2 * math.pi * i / num_allergies if num_allergies > 0 else 0
+        r = 1.8
+        x = r * math.cos(angle)
+        y = r * math.sin(angle)
         
         nodes.append({
-            "id": allergy["_id"],
+            "id": f"allergy_{allergy['_id']}",
             "label": allergy["allergy_name"],
             "type": "allergy",
             "x": x,
             "y": y,
-            "size": 20,
-            "color": "#ef4444"
+            "size": 25,
+            "color": "#dc2626",
+            "hover": f"Allergy: {allergy['allergy_name']}<br>Type: {allergy['allergy_type']}"
         })
         
-        # Edge from patient to allergy
         edges.append({
             "from": "patient",
-            "to": allergy["_id"],
+            "to": f"allergy_{allergy['_id']}",
             "type": "has_allergy",
             "color": "#ef4444",
-            "width": 2
+            "width": 3
         })
     
-    # Layer 2: Drug Classes
-    drug_class_positions = {}
-    for i, drug_class in enumerate(drug_classes):
-        angle = 2 * math.pi * i / len(drug_classes) + math.pi / len(drug_classes)
-        x = 3 * math.cos(angle)
-        y = 3 * math.sin(angle)
+    # 3. Layer 2: Drug Classes (Outer-Middle Circle)
+    drug_class_nodes = {}
+    num_classes = len(drug_classes)
+    for i, d_class in enumerate(drug_classes):
+        angle = 2 * math.pi * i / num_classes + (math.pi / max(num_classes, 1)) if num_classes > 0 else 0
+        r = 3.5
+        x = r * math.cos(angle)
+        y = r * math.sin(angle)
         
-        drug_class_id = f"class_{drug_class}"
+        node_id = f"class_{d_class}"
+        drug_class_nodes[d_class] = node_id
         nodes.append({
-            "id": drug_class_id,
-            "label": drug_class,
+            "id": node_id,
+            "label": d_class,
             "type": "drug_class",
             "x": x,
             "y": y,
-            "size": 18,
-            "color": "#f59e0b"
+            "size": 22,
+            "color": "#ea580c",
+            "hover": f"Drug Class: {d_class}<br>Allergic via selection"
         })
-        drug_class_positions[drug_class] = (x, y)
         
         # Connect allergies to drug classes
         for dca in drug_class_allergies:
-            if dca["drug_class"] == drug_class:
+            if dca["drug_class"] == d_class:
                 edges.append({
-                    "from": dca["allergy_id"],
-                    "to": drug_class_id,
+                    "from": f"allergy_{dca['allergy_id']}",
+                    "to": node_id,
                     "type": "class_match",
-                    "color": "#f59e0b",
+                    "color": "#f97316",
                     "width": 2,
                     "dash": "dash"
                 })
     
-    # Layer 3: Medications (outer circle)
-    all_meds = {m["_id"]: m for m in medications + class_medications}
-    med_list = list(all_meds.values())
-    
+    # 4. Layer 3: Medications (Outer Circle)
+    num_meds = len(med_list)
+    med_nodes = {}
     for i, med in enumerate(med_list):
-        angle = 2 * math.pi * i / len(med_list)
-        x = 4.5 * math.cos(angle)
-        y = 4.5 * math.sin(angle)
+        angle = 2 * math.pi * i / num_meds if num_meds > 0 else 0
+        r = 5.5
+        x = r * math.cos(angle)
+        y = r * math.sin(angle)
         
+        node_id = f"med_{med['_id']}"
+        med_nodes[med["_id"]] = node_id
         nodes.append({
-            "id": med["_id"],
+            "id": node_id,
             "label": med["med_name"],
             "type": "medication",
             "x": x,
             "y": y,
-            "size": 15,
-            "color": "#8b5cf6"
+            "size": 18,
+            "color": "#7c3aed",
+            "hover": f"Medication: {med['med_name']}<br>Class: {med['drug_class']}"
         })
         
-        # Connect medications to drug classes
-        if med["drug_class"] in drug_class_positions:
+        # Connect to drug class if it matches
+        if med["drug_class"] in drug_class_nodes:
             edges.append({
-                "from": f"class_{med['drug_class']}",
-                "to": med["_id"],
+                "from": drug_class_nodes[med["drug_class"]],
+                "to": node_id,
                 "type": "belongs_to",
-                "color": "#cbd5e1",
-                "width": 1
+                "color": "#94a3b8",
+                "width": 1.5
             })
-        
-        # Connect cross-reactivity
-        for cr in cross_rules:
-            if cr["reactive_med_id"] == med["_id"]:
-                risk_score = cr["risk_score"]
-                color = "#dc2626" if risk_score > 0.7 else "#f59e0b" if risk_score > 0.5 else "#22c55e"
-                width = 3 if risk_score > 0.7 else 2
-                
-                edges.append({
-                    "from": cr["allergen_id"],
-                    "to": med["_id"],
-                    "type": "cross_reactivity",
-                    "color": color,
-                    "width": width,
-                    "risk_score": risk_score
-                })
     
-    # Create Plotly figure
-    edge_traces = []
-    
-    # Group edges by type for legend
-    edge_types = {}
-    for edge in edges:
-        edge_type = edge["type"]
-        if edge_type not in edge_types:
-            edge_types[edge_type] = []
-        edge_types[edge_type].append(edge)
-    
-    # Create edge traces
-    for edge_type, type_edges in edge_types.items():
-        for edge in type_edges:
-            from_node = next(n for n in nodes if n["id"] == edge["from"])
-            to_node = next(n for n in nodes if n["id"] == edge["to"])
+    # 5. Cross-Reactivity Edges (Direct Allergy to Medication)
+    for cr in cross_rules:
+        med_id = cr["reactive_med_id"]
+        allergy_id = cr["allergen_id"]
+        if f"allergy_{allergy_id}" in [n["id"] for n in nodes] and f"med_{med_id}" in [n["id"] for n in nodes]:
+            risk_score = cr["risk_score"]
+            color = "#b91c1c" if risk_score > 0.7 else "#d97706" if risk_score > 0.5 else "#15803d"
+            width = 4 if risk_score > 0.7 else 2.5
             
+            edges.append({
+                "from": f"allergy_{allergy_id}",
+                "to": f"med_{med_id}",
+                "type": "cross_reactivity",
+                "color": color,
+                "width": width,
+                "risk_score": risk_score,
+                "hover": f"Cross-Reactivity Risk: {risk_score:.2f} ({cr['risk_level']})"
+            })
+    
+    # Create Plotly traces
+    fig_data = []
+    
+    # Helper to find node by ID
+    node_map = {n["id"]: n for n in nodes}
+    
+    # Edge traces
+    for edge in edges:
+        from_node = node_map.get(edge["from"])
+        to_node = node_map.get(edge["to"])
+        
+        if from_node and to_node:
             edge_trace = go.Scatter(
                 x=[from_node["x"], to_node["x"], None],
                 y=[from_node["y"], to_node["y"], None],
@@ -957,77 +978,77 @@ def create_allergy_network_graph(patient_id):
                     dash=edge.get("dash", "solid")
                 ),
                 hoverinfo='text',
-                text=f"{edge_type.replace('_', ' ').title()}" + 
-                     (f" (Risk: {edge['risk_score']:.2f})" if 'risk_score' in edge else ""),
+                text=edge.get("hover", edge["type"].replace("_", " ").title()),
                 showlegend=False
             )
-            edge_traces.append(edge_trace)
+            fig_data.append(edge_trace)
     
-    # Create node traces by type
-    node_traces = []
-    node_types = {}
-    for node in nodes:
-        node_type = node["type"]
-        if node_type not in node_types:
-            node_types[node_type] = []
-        node_types[node_type].append(node)
-    
-    type_colors = {
-        "patient": "#3b82f6",
-        "allergy": "#ef4444",
-        "drug_class": "#f59e0b",
-        "medication": "#8b5cf6"
+    # Node traces by type for legend
+    type_configs = {
+        "patient": {"color": "#2563eb", "name": "Patient"},
+        "allergy": {"color": "#dc2626", "name": "Allergies"},
+        "drug_class": {"color": "#ea580c", "name": "Drug Classes"},
+        "medication": {"color": "#7c3aed", "name": "Medications"}
     }
     
-    type_names = {
-        "patient": "Patient",
-        "allergy": "Allergies",
-        "drug_class": "Drug Classes",
-        "medication": "Medications"
-    }
+    for n_type, config in type_configs.items():
+        type_nodes = [n for n in nodes if n["type"] == n_type]
+        if type_nodes:
+            node_trace = go.Scatter(
+                x=[n["x"] for n in type_nodes],
+                y=[n["y"] for n in type_nodes],
+                mode='markers+text',
+                marker=dict(
+                    size=[n["size"] for n in type_nodes],
+                    color=config["color"],
+                    line=dict(width=2, color='white')
+                ),
+                text=[n["label"] for n in type_nodes],
+                textposition="top center",
+                textfont=dict(size=11, color='#1e293b', family='Inter, sans-serif'),
+                hoverinfo='text',
+                hovertext=[n["hover"] for n in type_nodes],
+                name=config["name"],
+                showlegend=True
+            )
+            fig_data.append(node_trace)
     
-    for node_type, type_nodes in node_types.items():
-        node_trace = go.Scatter(
-            x=[n["x"] for n in type_nodes],
-            y=[n["y"] for n in type_nodes],
-            mode='markers+text',
-            marker=dict(
-                size=[n["size"] for n in type_nodes],
-                color=type_colors[node_type],
-                line=dict(width=2, color='white')
-            ),
-            text=[n["label"] for n in type_nodes],
-            textposition="top center",
-            textfont=dict(size=10, color='#1e293b'),
-            hoverinfo='text',
-            hovertext=[n["label"] for n in type_nodes],
-            name=type_names[node_type],
-            showlegend=True
-        )
-        node_traces.append(node_trace)
-    
-    # Create figure
-    fig = go.Figure(data=edge_traces + node_traces)
+    fig = go.Figure(data=fig_data)
     
     fig.update_layout(
-        title=dict(
-            text="Allergy-Medication Relationship Network",
-            font=dict(size=20, color='#0f172a')
-        ),
         showlegend=True,
         legend=dict(
-            x=0.02,
-            y=0.98,
-            bgcolor='rgba(255,255,255,0.9)',
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            bgcolor='rgba(255,255,255,0.8)',
             bordercolor='#e2e8f0',
             borderwidth=1
         ),
         hovermode='closest',
-        margin=dict(b=20, l=5, r=5, t=40),
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        plot_bgcolor='#f8fafc',
-        height=700
+        margin=dict(b=40, l=40, r=40, t=100),
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-7, 7]),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-7, 7]),
+        plot_bgcolor='white',
+        height=800,
+        title=dict(
+            text=f"AI-Powered Allergy Relationship Analysis",
+            font=dict(size=24, family='Inter, sans-serif', color='#0f172a'),
+            x=0.5,
+            y=0.95
+        ),
+        annotations=[
+            dict(
+                text="<b>Outer Ring:</b> Medications to Avoid<br><b>Middle Ring:</b> Drug Classes & Cross-Reactions<br><b>Inner Ring:</b> Primary Allergies",
+                showarrow=False,
+                xref="paper", yref="paper",
+                x=0.01, y=-0.05,
+                align="left",
+                font=dict(size=12, color='#64748b')
+            )
+        ]
     )
     
     return fig
