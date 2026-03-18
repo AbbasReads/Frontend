@@ -759,12 +759,18 @@ def prescription_validator():
             if result.get('alternatives'):
                 st.subheader("Safe Alternatives")
                 
-                # Create table manually without pandas
                 if result['alternatives']:
-                    st.write("| Medication | Drug Class | Reason |")
-                    st.write("|------------|------------|--------|")
-                    for alt in result['alternatives']:
-                        st.write(f"| **{alt['med_name']}** | {alt['drug_class']} | {alt['reason']} |")
+                    # Display alternatives in a clean format
+                    for i, alt in enumerate(result['alternatives'], 1):
+                        with st.container():
+                            col1, col2, col3 = st.columns([2, 2, 4])
+                            with col1:
+                                st.markdown(f"**{i}. {alt['med_name']}**")
+                            with col2:
+                                st.markdown(f"*{alt['drug_class']}*")
+                            with col3:
+                                st.markdown(f"{alt['reason']}")
+                            st.divider()
                 else:
                     st.info("No alternatives available")
     
