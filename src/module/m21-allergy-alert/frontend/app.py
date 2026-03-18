@@ -1010,8 +1010,10 @@ def create_allergy_network_graph(patient_id):
     fig = go.Figure(data=edge_traces + node_traces)
     
     fig.update_layout(
-        title="Allergy-Medication Relationship Network",
-        titlefont=dict(size=20, color='#0f172a'),
+        title=dict(
+            text="Allergy-Medication Relationship Network",
+            font=dict(size=20, color='#0f172a')
+        ),
         showlegend=True,
         legend=dict(
             x=0.02,
