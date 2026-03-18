@@ -769,6 +769,268 @@ def prescription_validator():
     """)
 
 
+def create_allergy_network_graph(patient_id):
+    """Create interactive network graph showing allergy-medication relationships"""
+    from shared.database import db_manager
+    import plotly.graph_objects as go
+    
+    # Get patient allergies
+    patient_allergies = list(db_manager.get_collection("patient_allergies").find(
+        {"patient_id": patient_id}
+    ))
+    
+    if not patient_allergies:
+        return None
+    
+    allergy_ids = [pa["allergy_id"] for pa in patient_allergies]
+    
+    # Get allergy details
+    allergies = list(db_manager.get_collection("allergies").find(
+        {"_id": {"$in": allergy_ids}}
+    ))
+    
+    # Get cross-reactivity rules
+    cross_rules = list(db_manager.get_collection("cross_reactivity_rules").find(
+        {"allergen_id": {"$in": allergy_ids}}
+    ))
+    
+    # Get drug class allergies
+    drug_class_allergies = list(db_manager.get_collection("drug_class_allergies").find(
+        {"allergy_id": {"$in": allergy_ids}}
+    ))
+    
+    # Get medications involved
+    med_ids = [cr["reactive_med_id"] for cr in cross_rules]
+    medications = list(db_manager.get_collection("medications").find(
+        {"_id": {"$in": med_ids}}
+    )) if med_ids else []
+    
+    # Also get medications by drug class
+    drug_classes = list(set([dca["drug_class"] for dca in drug_class_allergies]))
+    class_medications = list(db_manager.get_collection("medications").find(
+        {"drug_class": {"$in": drug_classes}}
+    )) if drug_classes else []
+    
+    # Build graph data
+    nodes = []
+    edges = []
+    node_positions = {}
+    
+    # Center: Patient
+    nodes.append({
+        "id": "patient",
+        "label": "Patient",
+        "type": "patient",
+        "x": 0,
+        "y": 0,
+        "size": 30,
+        "color": "#3b82f6"
+    })
+    
+    # Layer 1: Allergies (circle around patient)
+    import math
+    num_allergies = len(allergies)
+    for i, allergy in enumerate(allergies):
+        angle = 2 * math.pi * i / num_allergies
+        x = 1.5 * math.cos(angle)
+        y = 1.5 * math.sin(angle)
+        
+        nodes.append({
+            "id": allergy["_id"],
+            "label": allergy["allergy_name"],
+            "type": "allergy",
+            "x": x,
+            "y": y,
+            "size": 20,
+            "color": "#ef4444"
+        })
+        
+        # Edge from patient to allergy
+        edges.append({
+            "from": "patient",
+            "to": allergy["_id"],
+            "type": "has_allergy",
+            "color": "#ef4444",
+            "width": 2
+        })
+    
+    # Layer 2: Drug Classes
+    drug_class_positions = {}
+    for i, drug_class in enumerate(drug_classes):
+        angle = 2 * math.pi * i / len(drug_classes) + math.pi / len(drug_classes)
+        x = 3 * math.cos(angle)
+        y = 3 * math.sin(angle)
+        
+        drug_class_id = f"class_{drug_class}"
+        nodes.append({
+            "id": drug_class_id,
+            "label": drug_class,
+            "type": "drug_class",
+            "x": x,
+            "y": y,
+            "size": 18,
+            "color": "#f59e0b"
+        })
+        drug_class_positions[drug_class] = (x, y)
+        
+        # Connect allergies to drug classes
+        for dca in drug_class_allergies:
+            if dca["drug_class"] == drug_class:
+                edges.append({
+                    "from": dca["allergy_id"],
+                    "to": drug_class_id,
+                    "type": "class_match",
+                    "color": "#f59e0b",
+                    "width": 2,
+                    "dash": "dash"
+                })
+    
+    # Layer 3: Medications (outer circle)
+    all_meds = {m["_id"]: m for m in medications + class_medications}
+    med_list = list(all_meds.values())
+    
+    for i, med in enumerate(med_list):
+        angle = 2 * math.pi * i / len(med_list)
+        x = 4.5 * math.cos(angle)
+        y = 4.5 * math.sin(angle)
+        
+        nodes.append({
+            "id": med["_id"],
+            "label": med["med_name"],
+            "type": "medication",
+            "x": x,
+            "y": y,
+            "size": 15,
+            "color": "#8b5cf6"
+        })
+        
+        # Connect medications to drug classes
+        if med["drug_class"] in drug_class_positions:
+            edges.append({
+                "from": f"class_{med['drug_class']}",
+                "to": med["_id"],
+                "type": "belongs_to",
+                "color": "#cbd5e1",
+                "width": 1
+            })
+        
+        # Connect cross-reactivity
+        for cr in cross_rules:
+            if cr["reactive_med_id"] == med["_id"]:
+                risk_score = cr["risk_score"]
+                color = "#dc2626" if risk_score > 0.7 else "#f59e0b" if risk_score > 0.5 else "#22c55e"
+                width = 3 if risk_score > 0.7 else 2
+                
+                edges.append({
+                    "from": cr["allergen_id"],
+                    "to": med["_id"],
+                    "type": "cross_reactivity",
+                    "color": color,
+                    "width": width,
+                    "risk_score": risk_score
+                })
+    
+    # Create Plotly figure
+    edge_traces = []
+    
+    # Group edges by type for legend
+    edge_types = {}
+    for edge in edges:
+        edge_type = edge["type"]
+        if edge_type not in edge_types:
+            edge_types[edge_type] = []
+        edge_types[edge_type].append(edge)
+    
+    # Create edge traces
+    for edge_type, type_edges in edge_types.items():
+        for edge in type_edges:
+            from_node = next(n for n in nodes if n["id"] == edge["from"])
+            to_node = next(n for n in nodes if n["id"] == edge["to"])
+            
+            edge_trace = go.Scatter(
+                x=[from_node["x"], to_node["x"], None],
+                y=[from_node["y"], to_node["y"], None],
+                mode='lines',
+                line=dict(
+                    width=edge["width"],
+                    color=edge["color"],
+                    dash=edge.get("dash", "solid")
+                ),
+                hoverinfo='text',
+                text=f"{edge_type.replace('_', ' ').title()}" + 
+                     (f" (Risk: {edge['risk_score']:.2f})" if 'risk_score' in edge else ""),
+                showlegend=False
+            )
+            edge_traces.append(edge_trace)
+    
+    # Create node traces by type
+    node_traces = []
+    node_types = {}
+    for node in nodes:
+        node_type = node["type"]
+        if node_type not in node_types:
+            node_types[node_type] = []
+        node_types[node_type].append(node)
+    
+    type_colors = {
+        "patient": "#3b82f6",
+        "allergy": "#ef4444",
+        "drug_class": "#f59e0b",
+        "medication": "#8b5cf6"
+    }
+    
+    type_names = {
+        "patient": "Patient",
+        "allergy": "Allergies",
+        "drug_class": "Drug Classes",
+        "medication": "Medications"
+    }
+    
+    for node_type, type_nodes in node_types.items():
+        node_trace = go.Scatter(
+            x=[n["x"] for n in type_nodes],
+            y=[n["y"] for n in type_nodes],
+            mode='markers+text',
+            marker=dict(
+                size=[n["size"] for n in type_nodes],
+                color=type_colors[node_type],
+                line=dict(width=2, color='white')
+            ),
+            text=[n["label"] for n in type_nodes],
+            textposition="top center",
+            textfont=dict(size=10, color='#1e293b'),
+            hoverinfo='text',
+            hovertext=[n["label"] for n in type_nodes],
+            name=type_names[node_type],
+            showlegend=True
+        )
+        node_traces.append(node_trace)
+    
+    # Create figure
+    fig = go.Figure(data=edge_traces + node_traces)
+    
+    fig.update_layout(
+        title="Allergy-Medication Relationship Network",
+        titlefont=dict(size=20, color='#0f172a'),
+        showlegend=True,
+        legend=dict(
+            x=0.02,
+            y=0.98,
+            bgcolor='rgba(255,255,255,0.9)',
+            bordercolor='#e2e8f0',
+            borderwidth=1
+        ),
+        hovermode='closest',
+        margin=dict(b=20, l=5, r=5, t=40),
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        plot_bgcolor='#f8fafc',
+        height=700
+    )
+    
+    return fig
+
+
 def allergy_profile():
     """Patient Allergy Profile Page"""
     st.header("Patient Allergy Profile Viewer")
@@ -802,6 +1064,39 @@ def allergy_profile():
             **Patient:** {patient['name']}  
             **Date of Birth:** {patient['dob']} • **Age:** {patient['age']} • **Sex:** {patient['sex']}
             """)
+            
+            # Network Graph Visualization
+            st.subheader("Allergy-Medication Relationship Network")
+            st.write("Interactive visualization showing how patient allergies relate to medications through drug classes and cross-reactivity.")
+            
+            network_fig = create_allergy_network_graph(selected_patient_id)
+            if network_fig:
+                st.plotly_chart(network_fig, use_container_width=True)
+                
+                # Legend explanation
+                with st.expander("How to Read This Graph"):
+                    st.markdown("""
+                    **Node Types:**
+                    - 🔵 **Blue (Center)**: Patient
+                    - 🔴 **Red (Inner Circle)**: Patient's allergies
+                    - 🟠 **Orange (Middle Circle)**: Drug classes that match allergies
+                    - 🟣 **Purple (Outer Circle)**: Medications to avoid
+                    
+                    **Connection Types:**
+                    - **Solid Red Lines**: Direct allergy relationship
+                    - **Dashed Orange Lines**: Drug class matches
+                    - **Gray Lines**: Medication belongs to drug class
+                    - **Colored Lines to Medications**: Cross-reactivity risk
+                      - Dark Red: High risk (>0.7)
+                      - Orange: Medium risk (0.5-0.7)
+                      - Green: Low risk (<0.5)
+                    
+                    **Hover** over nodes and lines to see details!
+                    """)
+            else:
+                st.info("No allergy relationships to visualize for this patient.")
+            
+            st.divider()
             
             col1, col2 = st.columns(2)
             
